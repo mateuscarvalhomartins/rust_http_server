@@ -1,5 +1,5 @@
-use std::{thread, collections::HashMap, fs::{File, read_dir}, io::*,
-          net::{TcpListener, TcpStream, SocketAddr}, ffi::OsStr,};
+use std::{collections::HashMap, fs::{File, read_dir}, io::*,
+          net::{TcpListener, TcpStream, SocketAddr}, ffi::OsStr};
 
 fn header_to_string(header: HashMap<String, String>) -> String {
   let mut s = String::new();
@@ -29,17 +29,6 @@ fn header_from_string(s: &str) -> HashMap<String, String> {
   header
 }
 
-/// Get the content type of file ext
-/// 
-/// # Examples
-/// 
-/// ```
-/// use http_server::get_content_type;
-/// 
-/// assert_eq!(("text/html; charset=utf-8".to_string(), "text/html".to_string()), get_content_type("html").unwrap())
-/// ```
-/// 
-/// # Errors
 pub fn get_content_type(file_ext: &str) -> (String, String) {
   match file_ext.to_lowercase().as_str() {
     "html" => ("Content-Type".to_string(), "text/html".to_string()),
@@ -60,17 +49,6 @@ pub fn get_content_type(file_ext: &str) -> (String, String) {
   }
 }
 
-/// Read the [`File`] passed by parameter.
-///
-/// # Examples
-///
-/// ```no_run
-/// use http_server::read_file;
-/// use std::fs::File;
-///
-/// assert_eq!("Hello, world!", read_file(File::open("foo.txt").unwrap()));
-/// ```
-///
 pub fn read_file(mut file: File) -> String {
   let mut contents = String::new();
   match file.read_to_string(&mut contents) {
@@ -118,7 +96,7 @@ impl From<&str> for Uri {
     Uri {
       path: (*(&s[0..s.find("?").unwrap_or(s.len())].to_string()).clone()).to_string(),
       query: query
-    }
+    } 
   }
 }
 impl Default for Uri {
@@ -255,23 +233,8 @@ impl Default for Response {
   }
 }
 
-struct Context {
-  pub is_static: bool,
-  pub handler: Option<&'static (dyn Fn(&Request) -> Response + Sync)>,
-  pub static_response: Option<(Response, String/*Path to file*/)>
-}
-impl Clone for Context {
-  fn clone(&self) -> Self {
-    Context {
-      is_static: self.is_static.clone(),
-      handler: self.handler.clone(),
-      static_response: self.static_response.clone()
-    }
-  }
-}
-
 pub struct HttpServer {
-  contexts: HashMap<(Method, String), Context>
+  contexts: HashMap<(Method, String), (Response, String)>
 }
 impl HttpServer {
   pub fn new() -> Self {
@@ -279,55 +242,12 @@ impl HttpServer {
       contexts: HashMap::new(),
     }
   }
-  fn clone(&self) -> Self {
+  pub fn clone(&self) -> Self {
     HttpServer {
       contexts: self.contexts.clone(),
     }
   }
 
-  /// Add not static [`Context`] to self.contexts
-  /// 
-  /// # Examples
-  /// 
-  /// ```
-  /// use http_server::{HttpServer, Method, Request, Response, read_file, get_content_type};
-  /// use std::collections::HashMap;
-  /// use std::fs::File;
-  /// use std::io::Error;
-  /// 
-  /// fn context_handler(req: &Request) -> Response {
-  ///   Response { protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(), header: HashMap::from([get_content_type("html").unwrap()]), body: read_file(File::open("foo.txt").unwrap()) }
-  /// }
-  /// 
-  /// fn main() -> Result<(), Error> {
-  ///   let mut server = HttpServer::new();
-  ///   
-  ///   server.add_context_handler(Method::GET, "", &context_handler);
-  /// 
-  ///   Ok(())
-  /// }
-  /// ```
-  pub fn add_context_handler(&mut self, method: Method, at: &str, handler: &'static (dyn Fn(&Request) -> Response + Sync)) {
-    self.contexts.insert((method, at.to_string()), Context { is_static: false, static_response: None, handler: Some(handler) });
-  }
-
-
-  /// Add static [`Context`] to self.contexts
-  /// 
-  /// # Examples
-  /// 
-  /// ```
-  /// use http_server::{HttpServer};
-  /// use std::io::Error;
-  /// 
-  /// fn main() -> Result<(), Error> {
-  ///   let mut server = HttpServer::new();
-  ///   
-  ///   server.add_static_files(".\\foo\\", "");
-  /// 
-  ///   Ok(())
-  /// }
-  /// ```
   pub fn add_static_files(&mut self, dir_path: &str, at: &str) {
     let directory = match read_dir(&dir_path) {
       Ok(d) => d,
@@ -340,26 +260,26 @@ impl HttpServer {
       for result_path in directory {
         let path = result_path.unwrap();
         self.contexts.insert((Method::GET, format!("/{}", path.file_name().to_string_lossy().to_string())),
-                                      Context { is_static: true, static_response: Some((Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                      (Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
                                                   header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
                                                                                           .unwrap_or(""))]),
                                                   body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())},
-                                                  path.path().to_string_lossy().to_string())), handler: None });
+                                                  path.path().to_string_lossy().to_string()));
       }
     } else {
       for result_path in directory {
         let path = result_path.unwrap();
         self.contexts.insert((Method::GET, format!("/{}/{}", at, path.file_name().to_string_lossy().to_string())), 
-                                      Context { is_static: true, static_response: Some((Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                      (Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
                                                   header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
                                                                                           .unwrap_or(""))]),
                                                   body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())},
-                                                  path.path().to_string_lossy().to_string())), handler: None });
+                                                  path.path().to_string_lossy().to_string()));
       }
     }
   }
 
-  fn read_request(&self, mut stream: &TcpStream) -> Request {
+  pub fn read_request(&self, mut stream: &TcpStream) -> Request {
     let mut buf = [0u8; 4096];
     match stream.read(&mut buf) {
       Ok(_) => {
@@ -372,51 +292,35 @@ impl HttpServer {
       }
     }
   }
-  fn send_response(&mut self, mut stream: &TcpStream, request: &Request) -> Response {
+  pub fn send_response<F>(&self, mut stream: &TcpStream, request: &Request,
+                        context_handlers: HashMap<(Method, String), F>) -> Response
+                        where F: Fn(&Request) -> Response {
     let mut response = Response { protocolo: "HTTP/1.1".to_string(), status: "404 NOT FOUND".to_string(), header: HashMap::from([("Content-Type".to_string().to_string(), "text/html; charset=UTF-8".to_string())]),
                                            body: "<html>\r\n<body>\r\n\t<h1>404</h1>\r\n\t<p>Page Not Found</p>\r\n</body>\r\n</html>".to_string() };
     for context in &self.contexts {
       if context.0.1 == request.uri.path {
-        if context.1.is_static && request.method == Method::GET {
-          response = context.1.static_response.clone().expect("Context is static but static_response field is None").0;
-          response.body = read_file(File::open(context.1.static_response.clone().expect("Context is static but static_response field is None").1).unwrap())
-        }
-        else if context.0.0 == request.method {
-          response = (context.1.handler.expect("Context is handled but handler field is None"))(request);
+        if request.method == Method::GET {
+          response = context.1.0.clone();
+          response.body = read_file(File::open(context.1.1.clone()).unwrap());
           break
         }
+      }
+    }
+    for handler in context_handlers {
+      if handler.0.0 == request.method && handler.0.1 == request.uri.path  {
+        response = (handler.1)(request); 
+        break
       }
     }
     stream.write_all(response.to_string().as_bytes()).expect("Send response interrupted");
     response
   }
 
-  /// Server listen to requests at http://localhost:port/
-  /// 
-  /// # Examples
-  /// 
-  /// ```
-  /// use http_server::{HttpServer};
-  /// use std::io::Error;
-  /// 
-  /// fn main() -> Result<(), Error> {
-  ///   let mut server = HttpServer::new();
-  /// 
-  ///   server.listen(80);
-  ///   Ok(())
-  /// }
-  /// ```
-  pub fn listen(&self, port: u16) {
+  pub fn listen<F>(&self, port: u16, handler: F) where F: Fn(TcpStream, HttpServer) {
     let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port))).expect(&format!("Failed to bind to 127.0.0.1:{}", port));
     for stream in listener.incoming() {
       match stream {
-        Ok(stream) => { let mut self_clone = self.clone();
-          thread::spawn(move || {
-            let request = self_clone.read_request(&stream);
-            let response = self_clone.send_response(&stream, &request);
-            println!("Request:\n{}\n\nResponse:\n{}\n\n", request.to_string(), response.to_string());
-          });
-        },
+        Ok(stream) => { handler(stream, (*self).clone()); },
         Err(e) => { println!("Error: {}", e); }
       }
     }
