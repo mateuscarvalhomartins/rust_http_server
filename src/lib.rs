@@ -1,5 +1,5 @@
 use std::{collections::HashMap, fs::{File, read_dir}, io::*,
-          net::{TcpListener, TcpStream, SocketAddr}, ffi::OsStr};
+          net::{TcpListener, TcpStream, SocketAddr}, ffi::OsStr, hash::Hash};
 
 fn header_to_string(header: HashMap<String, String>) -> String {
   let mut s = String::new();
@@ -31,7 +31,7 @@ fn header_from_string(s: &str) -> HashMap<String, String> {
 
 pub fn get_content_type(file_ext: &str) -> (String, String) {
   match file_ext.to_lowercase().as_str() {
-    "html" => ("Content-Type".to_string(), "text/html".to_string()),
+    "html" => ("Content-Type".to_string(), "text/html; charset=UTF-8".to_string()),
     "css" => ("Content-Type".to_string(), "text/css".to_string()),
     "js" => ("Content-Type".to_string(), "text/javascript".to_string()),
     "png" => ("Content-Type".to_string(), "image/png".to_string()),
@@ -234,7 +234,7 @@ impl Default for Response {
 }
 
 pub struct HttpServer {
-  contexts: HashMap<(Method, String), (Response, String)>
+  contexts: HashMap<(Method, String), Response>
 }
 impl HttpServer {
   pub fn new() -> Self {
@@ -260,21 +260,26 @@ impl HttpServer {
       for result_path in directory {
         let path = result_path.unwrap();
         self.contexts.insert((Method::GET, format!("/{}", path.file_name().to_string_lossy().to_string())),
-                                      (Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
-                                                  header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
-                                                                                          .unwrap_or(""))]),
-                                                  body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())},
-                                                  path.path().to_string_lossy().to_string()));
+                              Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                          header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
+                                                                                  .unwrap_or(""))]),
+                                          body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
+        if path.file_name().to_string_lossy().to_string().eq("index.html") {
+          self.contexts.insert((Method::GET, "/".to_string()),
+                               Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                        header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
+                                                                                .unwrap_or(""))]),
+                                        body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
+        }
       }
     } else {
       for result_path in directory {
         let path = result_path.unwrap();
         self.contexts.insert((Method::GET, format!("/{}/{}", at, path.file_name().to_string_lossy().to_string())), 
-                                      (Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
-                                                  header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
-                                                                                          .unwrap_or(""))]),
-                                                  body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())},
-                                                  path.path().to_string_lossy().to_string()));
+                            Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                      header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
+                                                                              .unwrap_or(""))]),
+                                      body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
       }
     }
   }
@@ -283,7 +288,6 @@ impl HttpServer {
     let mut buf = [0u8; 4096];
     match stream.read(&mut buf) {
       Ok(_) => {
-        println!("{}", String::from_utf8_lossy(&buf).trim());
         Request::from(String::from_utf8_lossy(&buf).trim())
       },
       Err(e) => {
@@ -292,28 +296,25 @@ impl HttpServer {
       }
     }
   }
-  pub fn send_response<F>(&self, mut stream: &TcpStream, request: &Request,
-                        context_handlers: HashMap<(Method, String), F>) -> Response
-                        where F: Fn(&Request) -> Response {
-    let mut response = Response { protocolo: "HTTP/1.1".to_string(), status: "404 NOT FOUND".to_string(), header: HashMap::from([("Content-Type".to_string().to_string(), "text/html; charset=UTF-8".to_string())]),
-                                           body: "<html>\r\n<body>\r\n\t<h1>404</h1>\r\n\t<p>Page Not Found</p>\r\n</body>\r\n</html>".to_string() };
+  pub fn send_response(&self, mut stream: &TcpStream, request: &Request,
+                        context_handlers: HashMap<(Method, String), Box<&(dyn Fn(&Request) -> Response + Sync)>>) -> Response {
     for context in &self.contexts {
-      if context.0.1 == request.uri.path {
-        if request.method == Method::GET {
-          response = context.1.0.clone();
-          response.body = read_file(File::open(context.1.1.clone()).unwrap());
-          break
-        }
+      if request.method == Method::GET && context.0.1 == request.uri.path {
+        stream.write_all(Response { protocolo: context.1.protocolo.clone(), status: context.1.status.clone(), header: context.1.header.clone(), body: context.1.body.clone() }.to_string().as_bytes()).expect("Send response interrupted");
+        return context.1.clone();
       }
     }
     for handler in context_handlers {
       if handler.0.0 == request.method && handler.0.1 == request.uri.path  {
-        response = (handler.1)(request); 
-        break
+        let response = (handler.1)(request); 
+        stream.write_all(response.to_string().as_bytes()).expect("Send response interrupted");
+        return response;
       }
     }
-    stream.write_all(response.to_string().as_bytes()).expect("Send response interrupted");
-    response
+    let not_found = Response {protocolo: "HTTP/1.1".to_string(), status: "404 NOT FOUND".to_string(), header: HashMap::from([("Content-Type".to_string().to_string(), "text/html; charset=UTF-8".to_string())]),
+                                body: "<html>\r\n<body>\r\n\t<h1>404</h1>\r\n\t<p>Page Not Found</p>\r\n</body>\r\n</html>".to_string() };
+    stream.write_all(not_found.to_string().as_bytes()).expect("Send response interrupted");
+    not_found
   }
 
   pub fn listen<F>(&self, port: u16, handler: F) where F: Fn(TcpStream, HttpServer) {

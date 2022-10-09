@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<body class="bg-slate-600">
+  <form method="get" action="/game.html" class="mt-2 text-center">
+    <input type="text" placeholder="nickname" name="nickname" class="mr-0 outline-none text-center p-1 rounded-md rounded-r-none shadow-sm shadow-black">
+    <button type="submit" class="ml-0 outline-none bg-green-500 p-1 rounded-md rounded-l-none shadow-sm shadow-black">PLAY</button>
+  </form>
+  <div class="flex">
+    <table class="ml-auto mt-5 text-xl">
+      <thead class="border-2 border-black">
+        <tr>
+          <th class="text-white text-center px-2 py-1 border-r-2 border-black">Key</th>
+          <th class="text-white text-center px-2 py-1">Action</th>
+        </tr>
+      </thead>
+
+      <tbody class="border-2 border-black">
+        <tr class="border-b-2 border-black">
+          <td class="text-white text-center px-2 py-1 border-r-2 border-black">WASD or Arrow Keys</td>
+          <td class="text-white text-center px-2 py-1">Move/Little Push</td>
+        </tr>
+        <tr>
+          <td class="text-white text-center border-r-2 border-black">T</td>
+          <td class="text-white text-center px-2 py-1">Stop time</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="ml-10 mr-auto mt-5 text-xl">
+      <thead class="border-2 border-black">
+        <tr>
+          <th class="text-white text-center px-2 py-1 border-r-2 border-black">Action</th>
+          <th class="text-white text-center px-2 py-1">Mechanic</th>
+        </tr>
+      </thead>
+      
+      <tbody class="border-2 border-black">
+        <tr class="border-b-2 border-black">
+          <td class="text-white text-center px-2 py-1 border-r-2 border-black">Stop Time</td>
+          <td class="text-white text-center px-2 py-1">Stop Time for 5 seconds if score bigger than 10</td>
+        </tr>
+        <tr>
+          <td class="text-white text-center border-r-2 border-black">Little Push</td>
+          <td class="text-white text-center px-2 py-1">Push adversary to the border then you will gain 5 score points</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+<head>
+  <meta charset="UTF-8">
+  <title>Game</title>
+  <link rel="stylesheet" href="/style.css">
+  <script>
+    document.getElementsByName("nickname")[0].focus();
+  </script>
+</head>
+</html>
