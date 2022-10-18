@@ -1,58 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
-<body class="bg-slate-600">
-  <form method="get" action="/game.html" class="mt-2 text-center">
-    <input type="text" placeholder="nickname" name="nickname" class="mr-0 outline-none text-center p-1 rounded-md rounded-r-none shadow-sm shadow-black">
-    <button type="submit" class="ml-0 outline-none bg-green-500 p-1 rounded-md rounded-l-none shadow-sm shadow-black">PLAY</button>
-  </form>
-  <div class="flex">
-    <table class="ml-auto mt-5 text-xl">
-      <thead class="border-2 border-black">
-        <tr>
-          <th class="text-white text-center px-2 py-1 border-r-2 border-black">Key</th>
-          <th class="text-white text-center px-2 py-1">Action</th>
-        </tr>
-      </thead>
-
-      <tbody class="border-2 border-black">
-        <tr class="border-b-2 border-black">
-          <td class="text-white text-center px-2 py-1 border-r-2 border-black">WASD or Arrow Keys</td>
-          <td class="text-white text-center px-2 py-1">Move/Little Push</td>
-        </tr>
-        <tr>
-          <td class="text-white text-center border-r-2 border-black">T</td>
-          <td class="text-white text-center px-2 py-1">Stop time</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <table class="ml-10 mr-auto mt-5 text-xl">
-      <thead class="border-2 border-black">
-        <tr>
-          <th class="text-white text-center px-2 py-1 border-r-2 border-black">Action</th>
-          <th class="text-white text-center px-2 py-1">Mechanic</th>
-        </tr>
-      </thead>
-      
-      <tbody class="border-2 border-black">
-        <tr class="border-b-2 border-black">
-          <td class="text-white text-center px-2 py-1 border-r-2 border-black">Stop Time</td>
-          <td class="text-white text-center px-2 py-1">Stop Time for 5 seconds if score bigger than 10</td>
-        </tr>
-        <tr>
-          <td class="text-white text-center border-r-2 border-black">Little Push</td>
-          <td class="text-white text-center px-2 py-1">Push adversary to the border then you will gain 5 score points</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</body>
-<head>
-  <meta charset="UTF-8">
-  <title>Game</title>
-  <link rel="stylesheet" href="/style.css">
-  <script>
-    document.getElementsByName("nickname")[0].focus();
-  </script>
-</head>
+  <body style="font-family: 'Dosis', sans-serif;" class="bg-zinc-900 text-white p-5 text-center">
+    <textarea readonly style="width: 8.75rem; height: 2.5rem;" class="resize-none p-2 text-right outline-none
+                                                                    shadow-black shadow-sm bg-zinc-700 rounded-sm">0</textarea><br>
+    
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="clearLast()">C</button>
+    <button style="width: 3.75rem;" class="shadow-black shadow-md hover:shadow-sm m-1 p-1 bg-zinc-700
+                  rounded-sm hover:bg-zinc-600 transition duration-75" onclick="clearAll()">AC</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="result()">=</button><br>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(1)">1</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(2)">2</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(3)">3</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('+')">+</button><br>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(4)">4</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(5)">5</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(6)">6</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('-')">-</button><br>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(7)">7</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(8)">8</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(9)">9</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('*')">&times;</button><br>
+  <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-24 bg-zinc-700 rounded-md 
+                  hover:bg-zinc-600 transition duration-75" onclick="registerNumber(0)">0</button>
+    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
+                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('/')">&div;</button><br>
+  </body>
+  <head>
+    <meta charset="UTF-8">
+    <title>Calculator</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Dosis">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/index.js"></script>
+  </head>
 </html>
