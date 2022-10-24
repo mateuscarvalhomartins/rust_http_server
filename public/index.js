@@ -5,6 +5,7 @@ const operations = {
   '-': () => Number.parseInt(n1) - Number.parseInt(n2),
   '/': () => Number.parseInt(n1) / Number.parseInt(n2),
   '*': () => Number.parseInt(n1) * Number.parseInt(n2),
+  '': () => Number.parseInt(n1)
 }
 
 function registerNumber(n) {

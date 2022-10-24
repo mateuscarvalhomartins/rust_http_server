@@ -12,21 +12,19 @@ fn header_to_string(header: HashMap<String, String>) -> String {
   s
 }
 fn header_from_string(s: &str) -> HashMap<String, String> {
-  let mut header: HashMap<String, String> = HashMap::new();
-  let str_header = &s[s.find("\r\n").unwrap_or(s.len())+1..s.find("\r\n\r\n").unwrap_or(s.len())];
-  let split_header = str_header.split("\r\n");
-  for str in split_header {
-    let split_str = str.split(": ");
-    let vec_str = split_str.collect::<Vec<&str>>();
+  let mut headers: HashMap<String, String> = HashMap::new();
+
+  for str in (&s[s.find("\r\n").unwrap_or(s.len())+1..s.find("\r\n\r\n").unwrap_or(s.len())]).split("\r\n") {
+    let vec_str = str.split(": ").collect::<Vec<&str>>();
     if vec_str.len() > 1 {
-      if vec_str[0].rfind("\n") != None {
-        header.insert(vec_str[0][vec_str[0].rfind("\n").unwrap()+1..].to_string(), vec_str[1].to_string());
-      } else {
-        header.insert(vec_str[0].to_string(), vec_str[1].to_string());
+      match vec_str[0].rfind("\n") {
+        Some(key_start) => { headers.insert(vec_str[0][key_start+1..].to_string(), vec_str[1].to_string()); }
+        None => { headers.insert(vec_str[0].to_string(), vec_str[1].to_string()); }
       }
     }
   }
-  header
+
+  headers
 }
 
 pub fn get_content_type(file_ext: &str) -> (String, String) {
@@ -51,10 +49,8 @@ pub fn get_content_type(file_ext: &str) -> (String, String) {
 
 pub fn read_file(mut file: File) -> String {
   let mut contents = String::new();
-  match file.read_to_string(&mut contents) {
-    Ok(_) => contents,
-    Err(_) => String::new(),
-  }
+  file.read_to_string(&mut contents).expect("unable to read file");
+  contents
 }
 
 pub struct Uri {
@@ -71,31 +67,34 @@ impl Clone for Uri {
 }
 impl ToString for Uri {
   fn to_string(&self) -> String {
-    if self.query.is_some() {
-      format!("{}?{}", self.path, header_to_string(self.query.clone().unwrap()))
-    } else {
-      self.path.clone()
+    match self.query {
+      Some(_) => format!("{}?{}", self.path, header_to_string(self.query.clone().unwrap())),
+      None => self.path.clone()
     }
   }
 }
 impl From<&str> for Uri {
   fn from(s: &str) -> Self {
-    let mut query: Option<HashMap<String, String>> = None;
+    if let Some(query_start) = s.find("?") {
+      let mut query: HashMap<String, String> = HashMap::new();
 
-    if s.find("?") != None {
-      query = Some(HashMap::new());
-      let params_query_not_splitted = &s[s.find("?").unwrap()+1..s.len()].split("&");
-      for param in params_query_not_splitted.clone().into_iter() {
-        let mut split = param.split("=");
-        let k = split.next().unwrap().to_string();
-        let v = split.next().expect(&format!("{} has no value", k)).to_string();
-        query.as_mut().unwrap().insert(k, v);
+      for param in (&s[query_start+1..]).split("&") {
+        let mut key_value_splitted = param.split("=");
+
+        let k = key_value_splitted.next().expect("query has no key").to_string();
+        let v = key_value_splitted.next().expect(&format!("{} has no value", k)).to_string();
+
+        query.insert(k, v);
       }
+      return Uri {
+        path: (&s[..query_start]).to_string(),
+        query: Some(query)
+      } 
     }
 
     Uri {
-      path: (*(&s[0..s.find("?").unwrap_or(s.len())].to_string()).clone()).to_string(),
-      query: query
+      path: s.to_string(),
+      query: None
     } 
   }
 }
@@ -144,7 +143,7 @@ impl From<&str> for Method {
       "OPTIONS" => Method::OPTIONS,
       "TRACE" => Method::TRACE,
       "PATCH" => Method::PATCH,
-      _ => Method::GET
+      _ => panic!("inexistent method")
     }
   }
 }
@@ -158,7 +157,8 @@ pub struct Request {
 }
 impl ToString for Request {
   fn to_string(&self) -> String {
-    format!("{} {} {}\r\n{}\r\n{}", self.method.to_string(), self.uri.to_string(), self.protocolo, header_to_string(self.header.clone()), self.body.clone().unwrap_or(String::new()))
+    format!("{} {} {}\r\n{}\r\n{}", self.method.to_string(), self.uri.to_string(), self.protocolo, header_to_string(self.header.clone()),
+                                    self.body.clone().unwrap_or(String::new()))
   }
 }
 impl Clone for Request {
@@ -174,19 +174,16 @@ impl Clone for Request {
 }
 impl From<&str> for Request {
   fn from(s: &str) -> Self {
-    let str_status_line = &s[..s.find("\r\n").expect("Request has no header")];
-    let split_status_line = str_status_line.split(" ");
-    let vec_status_line = split_status_line.collect::<Vec<&str>>();
-
+    let mut vec_status_line = (&s[..s.find("\r\n").expect("Request has no header")]).split(" "); 
     let header: HashMap<String, String> = header_from_string(s);
 
     let mut body: Option<String> = None;
-    if s.find("\r\n\r\n") != None {
+    if s.find("\r\n\r\n").is_some() {
       body = Some((&s[s.find("\r\n\r\n").unwrap()+4..]).to_string());
     }
 
-    Request { method: Method::from(vec_status_line[0]), uri: Uri::from(vec_status_line[1]), protocolo: vec_status_line[2].to_string(),
-              header: header, body: body }
+    Request { method: Method::from(vec_status_line.next().expect("request has no method")), uri: Uri::from(vec_status_line.next().expect("request has no URI")),
+              protocolo: vec_status_line.next().expect("request has no protocolo").to_string(), header: header, body: body }
   }
 }
 impl Default for Request {
@@ -220,11 +217,9 @@ impl Clone for Response {
 }
 impl From<&str> for Response {
   fn from(s: &str) -> Self {
-    let protocolo = &s[..s.find(" ").expect("Response has no protocolo")];
-    let status = &s[s.find(" ").unwrap()+1..s.find("\r\n").unwrap_or(s.find("\r\n\r\n").expect("Response has an empty body"))];
-    let header = header_from_string(s);
-    let body = &s[s.find("\r\n\r\n").unwrap()..];
-    Response { protocolo: protocolo.to_string(), status: status.to_string(), header: header, body: body.to_string() }
+    Response { protocolo: (&s[..s.find(" ").expect("Response has no protocolo")]).to_string(),
+               status: (&s[s.find(" ").unwrap()+1..s.find("\r\n").unwrap_or(s.find("\r\n\r\n").expect("Response has an empty body"))]).to_string(),
+               header: header_from_string(s), body: (&s[s.find("\r\n\r\n").unwrap()..]).to_string() }
   }
 }
 impl Default for Response {
@@ -261,15 +256,13 @@ impl HttpServer {
         let path = result_path.unwrap();
         self.contexts.insert((Method::GET, format!("/{}", path.file_name().to_string_lossy().to_string())),
                               Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
-                                          header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
-                                                                                  .unwrap_or(""))]),
+                                          header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str).unwrap_or(""))]),
                                           body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
         if path.file_name().to_string_lossy().to_string().eq("index.html") {
           self.contexts.insert((Method::GET, "/".to_string()),
                                Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
-                                        header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
-                                                                                .unwrap_or(""))]),
-                                        body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
+                                           header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str).unwrap_or(""))]),
+                                           body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
         }
       }
     } else {
@@ -284,7 +277,7 @@ impl HttpServer {
     }
   }
 
-  pub fn read_request(&self, mut stream: &TcpStream) -> Request {
+  pub fn read_request(mut stream: &TcpStream) -> Request {
     let mut buf = [0u8; 4096];
     match stream.read(&mut buf) {
       Ok(_) => {
@@ -292,13 +285,13 @@ impl HttpServer {
       },
       Err(e) => {
         eprintln!("Failed to read from stream. Err: {}", e);
-        return Request::default();
+        Request::default()
       }
     }
   }
-  pub fn send_response(&self, mut stream: &TcpStream, request: &Request,
+  pub fn send_response(self, mut stream: &TcpStream, request: &Request,
                         context_handlers: HashMap<(Method, String), Box<&(dyn Fn(&Request) -> Response + Sync)>>) -> Response {
-    for context in &self.contexts {
+    for context in self.contexts {
       if request.method == Method::GET && context.0.1 == request.uri.path {
         stream.write_all(Response { protocolo: context.1.protocolo.clone(), status: context.1.status.clone(), header: context.1.header.clone(), body: context.1.body.clone() }.to_string().as_bytes()).expect("Send response interrupted");
         return context.1.clone();
@@ -317,11 +310,11 @@ impl HttpServer {
     not_found
   }
 
-  pub fn listen<F>(&self, port: u16, handler: F) where F: Fn(TcpStream, HttpServer) {
+  pub fn listen<F>(self, port: u16, handler: F) where F: Fn(TcpStream, HttpServer) {
     let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port))).expect(&format!("Failed to bind to 127.0.0.1:{}", port));
     for stream in listener.incoming() {
       match stream {
-        Ok(stream) => { handler(stream, (*self).clone()); },
+        Ok(stream) => { handler(stream, self.clone()); },
         Err(e) => { println!("Error: {}", e); }
       }
     }
