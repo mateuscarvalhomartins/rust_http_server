@@ -6,7 +6,7 @@ use std::time::Instant;
 fn main() {
   let mut server = HttpServer::new();
   
-  server.add_static_files("./public/", "");
+  server.add_static_files("public", None);
 
   server.listen(8080, |stream, server| {
     thread::spawn(move || {
@@ -20,5 +20,5 @@ fn main() {
       println!("Request:\n{}\nResponse:\n{}", request.to_string(), response.to_string());
       println!("Elapsed: {:.2?}", elapsed);
     });
-  })
+  }, || { println!("Server running at http://locahost:8080/") })
 }

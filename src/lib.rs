@@ -47,10 +47,18 @@ pub fn get_content_type(file_ext: &str) -> (String, String) {
   }
 }
 
-pub fn read_file(mut file: File) -> String {
-  let mut contents = String::new();
-  file.read_to_string(&mut contents).expect("unable to read file");
-  contents
+pub fn read_file(path: &str) -> Result<Vec<u8>> {
+  let mut contents = Vec::new();
+  
+  match File::open(path) {
+    Ok(mut file) => {
+      match file.read_to_end(&mut contents) {
+        Ok(_) => Ok(contents),
+        Err(e) => return Err(e)
+      }
+    },
+    Err(e) => return Err(e)
+  }
 }
 
 pub struct Uri {
@@ -108,26 +116,14 @@ impl Default for Uri {
 pub enum Method {
   GET,
   POST,
-  PUT,
   DELETE,
-  HEAD,
-  CONNECT,
-  OPTIONS,
-  TRACE,
-  PATCH
 }
 impl ToString for Method {
   fn to_string(&self) -> String {
     match *self {
       Method::GET => format!("GET"),
       Method::POST => format!("POST"),
-      Method::PUT => format!("PUT"),
       Method::DELETE => format!("DELETE"),
-      Method::HEAD => format!("HEAD"),
-      Method::CONNECT => format!("CONNECT"),
-      Method::OPTIONS => format!("OPTIONS"),
-      Method::TRACE => format!("TRACE"),
-      Method::PATCH => format!("PATCH")
     }
   }
 }
@@ -136,13 +132,7 @@ impl From<&str> for Method {
     match s {
       "GET" => Method::GET,
       "POST" => Method::POST,
-      "PUT" => Method::PUT,
       "DELETE" => Method::DELETE,
-      "HEAD" => Method::HEAD,
-      "CONNECT" => Method::CONNECT,
-      "OPTIONS" => Method::OPTIONS,
-      "TRACE" => Method::TRACE,
-      "PATCH" => Method::PATCH,
       _ => panic!("inexistent method")
     }
   }
@@ -196,13 +186,23 @@ pub struct Response {
   pub protocolo: String,
   pub status: String,
   pub header: HashMap<String, String>,
-  pub body: String
+  pub body: Vec<u8>
+}
+impl Response {
+  fn as_bytes(&self) -> Vec<u8> {
+    let mut out = vec![];
+    out.append(&mut self.protocolo.as_bytes().to_vec());
+    out.append(&mut self.status.as_bytes().to_vec());
+    out.append(&mut header_to_string(self.header.clone()).as_bytes().to_vec());
+    out.append(&mut self.body.clone());
+    out
+  }
 }
 impl ToString for Response {
   fn to_string(&self) -> String {
     format!("{} {}\r\n{}\r\n{}", self.protocolo, self.status,
             header_to_string(self.header.clone()),
-            self.body)
+            String::from_utf8(self.body.clone()).unwrap_or(String::new()))
   }
 }
 impl Clone for Response {
@@ -219,12 +219,12 @@ impl From<&str> for Response {
   fn from(s: &str) -> Self {
     Response { protocolo: (&s[..s.find(" ").expect("Response has no protocolo")]).to_string(),
                status: (&s[s.find(" ").unwrap()+1..s.find("\r\n").unwrap_or(s.find("\r\n\r\n").expect("Response has an empty body"))]).to_string(),
-               header: header_from_string(s), body: (&s[s.find("\r\n\r\n").unwrap()..]).to_string() }
+               header: header_from_string(s), body: (&s[s.find("\r\n\r\n").unwrap()..]).as_bytes().to_vec() }
   }
 }
 impl Default for Response {
   fn default() -> Self {
-    Response { protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(), header: HashMap::new(), body: "".to_string() }
+    Response { protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(), header: HashMap::new(), body: vec![] }
   }
 }
 
@@ -243,7 +243,7 @@ impl HttpServer {
     }
   }
 
-  pub fn add_static_files(&mut self, dir_path: &str, at: &str) {
+  pub fn add_static_files(&mut self, dir_path: &str, opt_at: Option<&str>) {
     let directory = match read_dir(&dir_path) {
       Ok(d) => d,
       Err(e) => {
@@ -251,28 +251,53 @@ impl HttpServer {
         return
       }
     };
-    if at.is_empty() {
+    if let Some(at) = opt_at {
       for result_path in directory {
         let path = result_path.unwrap();
-        self.contexts.insert((Method::GET, format!("/{}", path.file_name().to_string_lossy().to_string())),
-                              Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
-                                          header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str).unwrap_or(""))]),
-                                          body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
-        if path.file_name().to_string_lossy().to_string().eq("index.html") {
-          self.contexts.insert((Method::GET, "/".to_string()),
-                               Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
-                                           header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str).unwrap_or(""))]),
-                                           body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
+        if path.metadata().expect("cannot get metadata").is_dir() { self.add_static_files(&path.path().to_string_lossy().to_string(), Some(at)); }
+        else {
+          match read_file(&path.path().to_string_lossy().to_string()) {
+            	Ok(content) => {
+                self.contexts.insert((Method::GET, format!("/{}/{}", at.replace("\\", "/"), path.file_name().to_string_lossy().to_string().replace("\\", "/"))), 
+                                      Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                                  header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
+                                                                              .unwrap_or(""))]),
+                                                  body: content.clone()});
+                if path.file_name().to_string_lossy().to_string().eq("index.html") {
+                  self.contexts.insert((Method::GET, format!("/{}", at.replace("\\", "/"))),
+                                      Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                                  header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str).unwrap_or(""))]),
+                                                  body: content});
+                }
+              } ,
+              Err(_) => { eprintln!("can't read {}", path.path().to_string_lossy().to_string()); }
+          }
         }
       }
-    } else {
+    }
+    else {
       for result_path in directory {
         let path = result_path.unwrap();
-        self.contexts.insert((Method::GET, format!("/{}/{}", at, path.file_name().to_string_lossy().to_string())), 
-                            Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
-                                      header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str)
-                                                                              .unwrap_or(""))]),
-                                      body: read_file(File::open(path.path().to_string_lossy().to_string()).unwrap())});
+      
+        if path.metadata().expect("cannot get metadata").is_dir() { self.add_static_files(&path.path().to_string_lossy().to_string(), Some(&path.path().to_string_lossy().to_string()[path.path().to_string_lossy().find("\\").unwrap()+1..])); }
+        else {
+          match read_file(&path.path().to_string_lossy().to_string()) {
+            Ok(content) => {
+              println!("/{}", path.file_name().to_string_lossy().to_string());
+              self.contexts.insert((Method::GET, format!("/{}", path.file_name().to_string_lossy().to_string())),
+                                  Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                              header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str).unwrap_or(""))]),
+                                              body: content.clone()});
+              if path.file_name().to_string_lossy().to_string().eq("index.html") {
+                self.contexts.insert((Method::GET, "/".to_string()),
+                                    Response {protocolo: "HTTP/1.1".to_string(), status: "200 OK".to_string(),
+                                                header: HashMap::from([get_content_type(path.path().extension().and_then(OsStr::to_str).unwrap_or(""))]),
+                                                body: content});
+              }
+            },
+            Err(_) => eprintln!("can't read {}", path.path().to_string_lossy().to_string())
+          }
+        }
       }
     }
   }
@@ -291,27 +316,27 @@ impl HttpServer {
   }
   pub fn send_response(self, mut stream: &TcpStream, request: &Request,
                         context_handlers: HashMap<(Method, String), Box<&(dyn Fn(&Request) -> Response + Sync)>>) -> Response {
-    for context in self.contexts {
-      if request.method == Method::GET && context.0.1 == request.uri.path {
-        stream.write_all(Response { protocolo: context.1.protocolo.clone(), status: context.1.status.clone(), header: context.1.header.clone(), body: context.1.body.clone() }.to_string().as_bytes()).expect("Send response interrupted");
-        return context.1.clone();
-      }
+    if let Some(response) = self.contexts.get(&(request.method, request.uri.path.clone())) {
+      stream.write_all(&response.as_bytes()).expect("Send response interrupted");
+        return response.clone();
     }
-    for handler in context_handlers {
-      if handler.0.0 == request.method && handler.0.1 == request.uri.path  {
-        let response = (handler.1)(request); 
-        stream.write_all(response.to_string().as_bytes()).expect("Send response interrupted");
-        return response;
-      }
+    if let Some(handler) = context_handlers.get(&(request.method, request.uri.path.clone())) {
+      let response = (handler)(request);
+      stream.write_all(&response.as_bytes()).expect("Send response interrupted");
+      return response;
     }
+
     let not_found = Response {protocolo: "HTTP/1.1".to_string(), status: "404 NOT FOUND".to_string(), header: HashMap::from([("Content-Type".to_string().to_string(), "text/html; charset=UTF-8".to_string())]),
-                                body: "<html>\r\n<body>\r\n\t<h1>404</h1>\r\n\t<p>Page Not Found</p>\r\n</body>\r\n</html>".to_string() };
-    stream.write_all(not_found.to_string().as_bytes()).expect("Send response interrupted");
+                                body: "<html>\r\n<body>\r\n\t<h1>404</h1>\r\n\t<p>Page Not Found</p>\r\n</body>\r\n</html>".as_bytes().to_vec() };
+    stream.write_all(&not_found.as_bytes()).expect("Send response interrupted");
     not_found
   }
 
-  pub fn listen<F>(self, port: u16, handler: F) where F: Fn(TcpStream, HttpServer) {
+  pub fn listen<F, F2>(self, port: u16, handler: F, on_bind: F2) where F: Fn(TcpStream, HttpServer),
+                                                                       F2: Fn() {
     let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port))).expect(&format!("Failed to bind to 127.0.0.1:{}", port));
+    on_bind();
+
     for stream in listener.incoming() {
       match stream {
         Ok(stream) => { handler(stream, self.clone()); },

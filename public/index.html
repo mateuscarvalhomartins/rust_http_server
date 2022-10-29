@@ -1,48 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
   <body style="font-family: 'Dosis', sans-serif;" class="bg-zinc-900 text-white p-5 text-center">
-    <textarea readonly style="width: 8.75rem; height: 2.5rem;" class="resize-none p-2 text-right outline-none
-                                                                    shadow-black shadow-sm bg-zinc-700 rounded-sm">0</textarea><br>
+    <textarea readonly class="output">0</textarea><br>
     
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="clearLast()">C</button>
-    <button style="width: 3.75rem;" class="shadow-black shadow-md hover:shadow-sm m-1 p-1 bg-zinc-700
-                  rounded-sm hover:bg-zinc-600 transition duration-75" onclick="clearAll()">AC</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="result()">=</button><br>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(1)">1</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(2)">2</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(3)">3</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('+')">+</button><br>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(4)">4</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(5)">5</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(6)">6</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('-')">-</button><br>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(7)">7</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(8)">8</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerNumber(9)">9</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('*')">&times;</button><br>
-  <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-24 bg-zinc-700 rounded-md 
-                  hover:bg-zinc-600 transition duration-75" onclick="registerNumber(0)">0</button>
-    <button class="shadow-black shadow-md hover:shadow-sm m-1 p-1 w-6 bg-zinc-700 rounded-sm 
-                    hover:bg-zinc-600 transition duration-75" onclick="registerOperator('/')">&div;</button><br>
+    <button class="btn clear" onclick="clearLast()">C</button>
+    <button class="btn clear-all" onclick="clearAll()">AC</button>
+    <button class="btn" onclick="result()">=</button><br>
+    <button class="btn" onclick="registerNumber(1)">1</button>
+    <button class="btn" onclick="registerNumber(2)">2</button>
+    <button class="btn" onclick="registerNumber(3)">3</button>
+    <button class="btn" onclick="registerOperator('+')">+</button><br>
+    <button class="btn" onclick="registerNumber(4)">4</button>
+    <button class="btn" onclick="registerNumber(5)">5</button>
+    <button class="btn" onclick="registerNumber(6)">6</button>
+    <button class="btn" onclick="registerOperator('-')">-</button><br>
+    <button class="btn" onclick="registerNumber(7)">7</button>
+    <button class="btn" onclick="registerNumber(8)">8</button>
+    <button class="btn" onclick="registerNumber(9)">9</button>
+    <button class="btn" onclick="registerOperator('*')">&times;</button><br>
+  <button class="btn zero" onclick="registerNumber(0)">0</button>
+    <button class="btn" onclick="registerOperator('/')">&div;</button><br>
   </body>
   <head>
     <meta charset="UTF-8">
     <title>Calculator</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Dosis">
     <link rel="stylesheet" href="/style.css">
     <script src="/index.js"></script>
   </head>
